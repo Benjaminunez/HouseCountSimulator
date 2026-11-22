@@ -29,7 +29,8 @@ async function procesarGuardado(objetos, camera, controles, costoTotal, miEscena
     if (esAdmin && !proyectoId && guardarComoPublico) {
         const nuevaDesc = await DialogoUI.prompt(
             "Ingresa una descripción para el catálogo público (Opcional):", 
-            "Ej: Casa compacta de 2 habitaciones..."
+            "Ej: Casa compacta de 2 habitaciones...",
+            true
         );
         if (nuevaDesc === null) return { exito: false };
         descripcionPrefabricada = nuevaDesc;

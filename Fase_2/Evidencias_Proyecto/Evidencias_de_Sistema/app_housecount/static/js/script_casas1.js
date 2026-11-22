@@ -10,7 +10,7 @@ const DialogoUI = {
             btnCancelar: document.getElementById('modal-ui-btn-cancelar')
         };
     },
-    mostrar: function({ tipo, titulo, mensaje, placeholder = '' }) {
+    mostrar: function({ tipo, titulo, mensaje, placeholder = '', esTextoLargo = false }) {
         return new Promise((resolve) => {
             const el = this.elementos();
             if (!el.overlay) {
@@ -32,6 +32,9 @@ const DialogoUI = {
             } else if (tipo === 'prompt') {
                 el.btnCancelar.style.display = 'block';
                 el.input.style.display = 'block';
+                // Ajusta la altura dinámicamente según lo que se pida
+                el.input.rows = esTextoLargo ? 5 : 1; 
+                el.input.style.height = esTextoLargo ? '120px' : '42px';
                 el.input.value = '';
                 el.input.placeholder = placeholder;
                 el.input.focus();
@@ -57,7 +60,8 @@ const DialogoUI = {
     },
     alert: (mensaje) => DialogoUI.mostrar({ tipo: 'alert', titulo: 'Atención', mensaje }),
     confirm: (mensaje) => DialogoUI.mostrar({ tipo: 'confirm', titulo: 'Confirmar Acción', mensaje }),
-    prompt: (mensaje, placeholder) => DialogoUI.mostrar({ tipo: 'prompt', titulo: 'Ingreso Requerido', mensaje, placeholder })
+    prompt: (mensaje, placeholder, esTextoLargo = false) => DialogoUI.mostrar({ tipo: 'prompt', titulo: 'Ingreso Requerido', mensaje, placeholder, esTextoLargo })
+    
 };
 
 

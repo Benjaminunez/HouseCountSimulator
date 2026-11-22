@@ -560,10 +560,14 @@ kbd {
 
 #display-nombre-proyecto{
     font-size: 12px; 
-    color: #666; 
     text-align: right; 
+    color: #333;
     margin-top: 5px; 
     padding-right: 10px;
+}
+
+body.tema-oscuro #display-nombre-proyecto{
+    color: #ffffff; 
 }
 
 @media (max-width: 768px) {
