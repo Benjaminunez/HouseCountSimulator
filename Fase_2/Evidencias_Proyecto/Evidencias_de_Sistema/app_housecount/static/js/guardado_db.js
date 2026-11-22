@@ -1,48 +1,46 @@
-async function procesarGuardado(objetos, camera, controles, costoTotal, miEscena, miRenderer, proyectoId = null, proyectoNombre = "", esPrefabricada = false) {
+async function procesarGuardado(objetos, camera, controles, costoTotal, miEscena, miRenderer, proyectoId = null, proyectoNombre = "", proyectoDescripcion = "", guardarComoPublico = false) {
     if (!objetos || objetos.length <= 1) {
         await DialogoUI.alert("La escena está vacía. Añade elementos antes de guardar.");
         return { exito: false };
     }
 
     let nombreProyecto = proyectoNombre;
+    const esAdmin = typeof window.esAdminGlobal !== 'undefined' && window.esAdminGlobal;
 
-    // 1. Validar nombre o actualización del diseño
     if (proyectoId) {
-        const confirmarActualizacion = await DialogoUI.confirm(`Actualmente estás editando "${proyectoNombre}".\n\n¿Deseas actualizar y sobrescribir este diseño con los nuevos cambios?`);
+        const tipoDiseno = esAdmin ? "del catálogo público" : "personal";
+        const confirmarActualizacion = await DialogoUI.confirm(`Actualmente estás editando el diseño ${tipoDiseno} "${proyectoNombre}".\n\n¿Deseas sobrescribir los cambios?`);
         if (!confirmarActualizacion) return { exito: false }; 
     } else {
-        // LÓGICA ESTILO CANVA: Solo lanzamos el prompt si dejó el nombre por defecto
         if (!nombreProyecto || nombreProyecto.trim() === "Nuevo Proyecto" || nombreProyecto.trim() === "") {
             nombreProyecto = await DialogoUI.prompt("Nombre para este nuevo proyecto:");
             if (!nombreProyecto) return { exito: false };
             
-            // Actualizamos la vista si el usuario usó la ventana emergente
             if (typeof actualizarNombreInterfaz === 'function') {
                 actualizarNombreInterfaz(nombreProyecto);
             }
         }
     }
 
-    // 2. NUEVO: Pedir descripción SOLO si es modelo público (prefabricada)
-    let descripcionPrefabricada = "";
-    if (esPrefabricada) {
-        descripcionPrefabricada = await DialogoUI.prompt(
+    // Usar la descripción existente por defecto para no borrarla al actualizar
+    let descripcionPrefabricada = proyectoDescripcion; 
+
+    // Solo pedimos descripción nueva si es un modelo NUEVO y se guardará como público
+    if (esAdmin && !proyectoId && guardarComoPublico) {
+        const nuevaDesc = await DialogoUI.prompt(
             "Ingresa una descripción para el catálogo público (Opcional):", 
-            "Ej: Casa compacta de 2 habitaciones, ideal para terrenos pequeños..."
+            "Ej: Casa compacta de 2 habitaciones..."
         );
-        
-        // Si el usuario presiona "Cancelar" en el prompt de la descripción, detenemos el guardado.
-        if (descripcionPrefabricada === null) return { exito: false };
+        if (nuevaDesc === null) return { exito: false };
+        descripcionPrefabricada = nuevaDesc;
     }
 
-    // 3. Captura de pantalla del modelo
     let capturaBase64 = null;
     if (miEscena && miRenderer) {
         miRenderer.render(miEscena, camera); 
         capturaBase64 = miRenderer.domElement.toDataURL("image/png");
     }
 
-    // 4. Mapeo de la escena 3D
     const datosEscena = [];
     for (let i = 1; i < objetos.length; i++) {
         const obj = objetos[i];
@@ -55,11 +53,10 @@ async function procesarGuardado(objetos, camera, controles, costoTotal, miEscena
         });
     }
 
-    // 5. Construcción del Payload final
     const payload = {
         proyecto_id: proyectoId, 
         nombre_proyecto: nombreProyecto,
-        descripcion: descripcionPrefabricada, // <--- Se envía a Django
+        descripcion: descripcionPrefabricada, 
         costo_total: costoTotal,
         datos_escena: datosEscena,
         datos_camara: {
@@ -67,10 +64,9 @@ async function procesarGuardado(objetos, camera, controles, costoTotal, miEscena
             targetX: controles.target.x, targetY: controles.target.y, targetZ: controles.target.z
         },
         captura_base64: capturaBase64,
-        es_prefabricada: esPrefabricada 
+        es_prefabricada: guardarComoPublico 
     };
 
-    // 6. Envío al servidor
     try {
         const response = await fetch('/api/guardar-diseno/', {
             method: 'POST',
@@ -98,11 +94,20 @@ async function procesarGuardado(objetos, camera, controles, costoTotal, miEscena
 // --- 2. FUNCIÓN PARA OBTENER DISEÑOS Y DIBUJAR TARJETAS ---
 async function cargarDisenosUsuario(scene, objetos, camera, controles, callbackActualizarUI) {
     try {
-        const response = await fetch('/api/obtener-disenos/');
+        // 1. Determinar el rol y la URL a consultar
+        const esAdmin = typeof window.esAdminGlobal !== 'undefined' && window.esAdminGlobal;
+        const urlFetch = esAdmin ? '/api/obtener-casas-prefabricadas/' : '/api/obtener-disenos/';
+
+        // 2. Realizar la petición
+        const response = await fetch(urlFetch);
         const data = await response.json();
 
+        // 3. Validar si hay resultados
         if (!response.ok || !data.disenos || data.disenos.length === 0) {
-            await DialogoUI.alert("Aún no tienes proyectos guardados.");
+            const mensajeVacio = esAdmin 
+                ? "Aún no hay casas prefabricadas registradas en el catálogo." 
+                : "Aún no tienes proyectos guardados.";
+            await DialogoUI.alert(mensajeVacio);
             return;
         }
 
@@ -114,6 +119,7 @@ async function cargarDisenosUsuario(scene, objetos, camera, controles, callbackA
         modal.style.zIndex = '999999';
         modal.style.pointerEvents = 'auto';
 
+        // 4. Dibujar las tarjetas
         data.disenos.forEach(proyecto => {
             const card = document.createElement('div');
             card.className = 'tarjeta-diseno';
@@ -123,38 +129,52 @@ async function cargarDisenosUsuario(scene, objetos, camera, controles, callbackA
             card.style.position = 'relative';
             card.style.zIndex = '1000000';     
 
-        const timestamp = new Date().getTime();
-        const imgUrl = proyecto.imagen_url 
-            ? `${proyecto.imagen_url}?v=${timestamp}` 
-            : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';            
-        const precioFormateado = Number(proyecto.costo_total).toLocaleString('es-CL');
+            const timestamp = new Date().getTime();
+            const imgUrl = proyecto.imagen_url 
+                ? `${proyecto.imagen_url}?v=${timestamp}` 
+                : 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';            
+            const precioFormateado = Number(proyecto.costo_total).toLocaleString('es-CL');
+
+            // El botón de eliminar solo lo mostramos para los diseños personales de un usuario normal
+            const botonEliminar = !esAdmin 
+                ? `<div class="btn-eliminar-diseno" title="Eliminar diseño">🗑️</div>` 
+                : '';
+
+            // Si es admin mostramos "Catálogo Público" o el metraje, si es usuario mostramos la fecha
+            const subtitulo = esAdmin 
+                ? (proyecto.area_cuadrada ? `📐 ${proyecto.area_cuadrada} m²` : '🏠 Catálogo Público') 
+                : `🗓 ${proyecto.fecha}`;
 
             card.innerHTML = `
-                <div class="btn-eliminar-diseno" title="Eliminar diseño">🗑️</div>
+                ${botonEliminar}
                 <img src="${imgUrl}" alt="Diseño: ${proyecto.nombre}">
                 <div class="tarjeta-info">
                     <h3>${proyecto.nombre}</h3>
-                    <p>🗓 ${proyecto.fecha}</p>
+                    <p>${subtitulo}</p>
                     <p class="precio-tarjeta">💰 $${precioFormateado}</p>
                 </div>
             `;
 
-            const btnEliminar = card.querySelector('.btn-eliminar-diseno');
-            btnEliminar.onclick = async (e) => {
-                e.stopPropagation(); 
-                const confirmar = await DialogoUI.confirm(`¿Estás seguro de que deseas eliminar permanentemente el diseño "${proyecto.nombre}"?`);
-                if (confirmar) {
-                    await eliminarDisenoBD(proyecto.id, card); 
-                    
-                    // Si el usuario eliminó el proyecto que estaba editando en ese momento
-                    if (typeof proyectoCargadoId !== 'undefined' && proyectoCargadoId === proyecto.id) {
-                        proyectoCargadoId = null;
-                        proyectoCargadoNombre = "";
-                        if (typeof actualizarNombreInterfaz === 'function') actualizarNombreInterfaz("");
+            // Configurar el evento de eliminar solo si no es admin
+            if (!esAdmin) {
+                const btnEliminar = card.querySelector('.btn-eliminar-diseno');
+                btnEliminar.onclick = async (e) => {
+                    e.stopPropagation(); 
+                    const confirmar = await DialogoUI.confirm(`¿Estás seguro de que deseas eliminar permanentemente el diseño "${proyecto.nombre}"?`);
+                    if (confirmar) {
+                        await eliminarDisenoBD(proyecto.id, card); 
+                        
+                        // Limpiar variables si eliminó el diseño actual
+                        if (typeof proyectoCargadoId !== 'undefined' && proyectoCargadoId === proyecto.id) {
+                            proyectoCargadoId = null;
+                            proyectoCargadoNombre = "";
+                            if (typeof actualizarNombreInterfaz === 'function') actualizarNombreInterfaz("");
+                        }
                     }
-                }
-            };
+                };
+            }
 
+            // Evento para cargar el diseño al 3D
             card.onclick = (e) => {
                 e.stopPropagation(); 
                 modal.style.display = 'none';
@@ -162,6 +182,10 @@ async function cargarDisenosUsuario(scene, objetos, camera, controles, callbackA
                 localStorage.removeItem('camara_homecount');
                 localStorage.setItem('proyecto_hc_id', proyecto.id);
                 localStorage.setItem('proyecto_hc_nombre', proyecto.nombre);
+                
+                // Indicamos globalmente si se cargó un modelo prefabricado (útil para la función de guardar)
+                window.esPrefabricadaActiva = esAdmin;
+
                 ejecutarCargaEscena3D(proyecto, scene, objetos, camera, controles, callbackActualizarUI);
             };
 
@@ -174,7 +198,6 @@ async function cargarDisenosUsuario(scene, objetos, camera, controles, callbackA
         console.error("Error al cargar la galería de proyectos:", err);
     }
 }
-
 async function eliminarDisenoBD(proyectoId, tarjetaHtml) {
     try {
         const response = await fetch('/api/eliminar-diseno/', {
@@ -296,7 +319,7 @@ async function ejecutarCargaEscena3D(proyecto, scene, objetos, camera, controles
     }
 
     if (callbackActualizarUI) {
-        callbackActualizarUI(nuevoCostoTotal, proyecto.id, proyecto.nombre);
+        callbackActualizarUI(nuevoCostoTotal, proyecto.id, proyecto.nombre, proyecto.descripcion);
     }
     
     if (typeof window.calcularYMostrarPerimetro === 'function') {

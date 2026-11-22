@@ -5,7 +5,7 @@
     <title>Modalidades de Construcción</title>
     
     <script>
-        const esAdminGlobal = "{{ request.user.is_superuser|yesno:'true,false' }}" === "true";
+        window.esAdminGlobal = "{{ request.user.is_superuser|yesno:'true,false' }}" === "true";
     </script>
     <link rel="icon" type="image/png" href="media/iconosPestana/construccion.ico">    
     <link rel="stylesheet" href="{% static 'css/Style5.css' %}?v=3">
@@ -190,4 +190,15 @@
 
     </div>
 </section>
+<script>
+    function limpiarSesion3D() {
+        localStorage.removeItem('proyecto_homecount');
+        localStorage.removeItem('camara_homecount');
+        localStorage.removeItem('proyecto_hc_id');
+        localStorage.removeItem('proyecto_hc_nombre');
+        localStorage.removeItem('proyecto_hc_descripcion');
+        localStorage.removeItem('diseno_temporal_cargado'); 
+    }
+</script>
+
 

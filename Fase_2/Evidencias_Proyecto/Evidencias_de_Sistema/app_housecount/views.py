@@ -199,6 +199,7 @@ def api_materiales_3d(request):
             {
                 "id": casa.id,
                 "nombre": casa.nombre,
+                "descripcion": casa.descripcion,
                 "area_cuadrada": casa.area_cuadrada, 
                 "costo_total": casa.costo_total,    
                 "datos_escena": casa.datos_escena, 
@@ -660,6 +661,7 @@ def obtener_casas_prefabricadas(request):
             {
                 'id': str(c.id),
                 'nombre': c.nombre,
+                'descripcion': c.descripcion,
                 'costo_total': float(c.costo_total),
                 'datos_escena': c.datos_escena,
                 'datos_camara': c.datos_camara,

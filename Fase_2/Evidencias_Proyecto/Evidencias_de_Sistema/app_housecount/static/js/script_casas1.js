@@ -63,6 +63,17 @@ const DialogoUI = {
 
 // Esperar a que el DOM cargue - EVENTO PRINCIPAL UNIFICADO
 document.addEventListener('DOMContentLoaded', () => {
+    // --- INICIO FIX SESIÓN BLANCA ---
+    if (!sessionStorage.getItem('sesion_iniciada_hc')) {
+        localStorage.removeItem('proyecto_hc_id');
+        localStorage.removeItem('proyecto_hc_nombre');
+        localStorage.removeItem('proyecto_hc_descripcion');
+        localStorage.removeItem('proyecto_homecount');
+        localStorage.removeItem('camara_homecount');
+        sessionStorage.setItem('sesion_iniciada_hc', 'true');
+    }
+    // --- FIN FIX SESIÓN BLANCA ---
+
     const container = document.getElementById('canvas-3d-container');
     if (!container) return;
 
@@ -80,8 +91,15 @@ document.addEventListener('DOMContentLoaded', () => {
     let esModoOscuro = localStorage.getItem('modo-oscuro') === 'activado'; 
     const uiTotal = document.getElementById('total-3d');
     
-    let proyectoCargadoId = null;
-    let proyectoCargadoNombre = "";
+    // --- NUEVO: Se añade la retención de la descripción ---
+    let proyectoCargadoId = localStorage.getItem('proyecto_hc_id') || null;
+    let proyectoCargadoNombre = localStorage.getItem('proyecto_hc_nombre') || "";
+    let proyectoCargadoDescripcion = localStorage.getItem('proyecto_hc_descripcion') || "";
+
+    const elNombreInit = document.getElementById('display-nombre-proyecto');
+    if (elNombreInit) {
+        elNombreInit.innerText = proyectoCargadoNombre !== "" ? proyectoCargadoNombre : "Nuevo Proyecto";
+    }
 
     const texturas = {
         madera: new THREE.MeshLambertMaterial({ color: 0x8b5a2b }),
@@ -176,13 +194,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const mouse = new THREE.Vector2();
     const objetosInteractuables = [plano]; 
     
-
-    // --- FUNCIONES DE ESTADO Y UI ---
     function actualizarEstadoBotones() {
         const btnGuardar = document.getElementById('btn-guardar-modelo');
         const btnGuardarCopia = document.getElementById('btn-guardar-copia');
-    
-        // 1 elemento significa que solo está el plano base
         const hayElementos = objetosInteractuables.length > 1; 
         const esProyectoExistente = proyectoCargadoId !== null;
     
@@ -661,7 +675,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const btn = document.createElement('button');
                     btn.className = `btn-mat-3d ${index === 0 ? 'activo' : ''}`;
                     btn.dataset.categoria = mat.categoria;
-                    const precioFormateado = new Intl.NumberFormat('es-CL').format(mat.coste);
+                    const precioFormateado = new Intl.NumberFormat('es-CL').format(mat.costo || mat.coste || 0); 
                     
                     if (mat.imagen) {
                         btn.innerHTML = `<img src="${mat.imagen}" alt="${mat.nombre}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px; pointer-events: none;">`;
@@ -684,11 +698,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     btn.addEventListener('click', function() {
                         document.querySelectorAll('.btn-mat-3d, .btn-hab-3d, .btn-casa-3d').forEach(b => b.classList.remove('activo'));
                         this.classList.add('activo');
-                        seleccionarElemento(mat.archivo_3d, mat.coste, false, mat.textura_key, mat.nombre, mat.categoria);
+                        seleccionarElemento(mat.archivo_3d, mat.coste || mat.costo, false, mat.textura_key, mat.nombre, mat.categoria);
                     });
                     
                     if (contenedorMateriales) contenedorMateriales.appendChild(btn);
-                    if (index === 0) seleccionarElemento(mat.archivo_3d, mat.coste, false, mat.textura_key, mat.nombre, mat.categoria);
+                    if (index === 0) seleccionarElemento(mat.archivo_3d, mat.coste || mat.costo, false, mat.textura_key, mat.nombre, mat.categoria);
                 });
             }
             
@@ -731,10 +745,12 @@ document.addEventListener('DOMContentLoaded', () => {
                             
                             const proyectoCopia = { ...casa, id: null }; 
                             
-                            cargarEscenaDesdeJSON(proyectoCopia, scene, objetosInteractuables, camera, controles, (nuevoCosto, idProyecto, nombreProyecto) => {
+                            cargarEscenaDesdeJSON(proyectoCopia, scene, objetosInteractuables, camera, controles, (nuevoCosto, idProyecto, nombreProyecto, descProyecto) => {
                                 costoTotal = nuevoCosto; 
                                 proyectoCargadoId = null;       
                                 proyectoCargadoNombre = nombreProyecto; 
+                                proyectoCargadoDescripcion = descProyecto || "";
+                                localStorage.setItem('proyecto_hc_descripcion', proyectoCargadoDescripcion);
                                 
                                 if (uiTotal) uiTotal.textContent = `$${new Intl.NumberFormat('es-CL').format(costoTotal)}`;
                                 actualizarListaUI();       
@@ -828,15 +844,9 @@ document.addEventListener('DOMContentLoaded', () => {
         for (let i = 1; i < objetosInteractuables.length; i++) {
             const obj = objetosInteractuables[i];
             datosGuardados.push({
-                posX: obj.position.x,
-                posY: obj.position.y,
-                posZ: obj.position.z,
-                rotY: obj.rotation.y,
-                precio: obj.userData.precio,
-                tipo: obj.userData.tipo,
-                url3D: obj.userData.url3D,
-                textura: obj.userData.textura,
-                nombre: obj.userData.nombre,
+                posX: obj.position.x, posY: obj.position.y, posZ: obj.position.z,
+                rotY: obj.rotation.y, precio: obj.userData.precio, tipo: obj.userData.tipo,
+                url3D: obj.userData.url3D, textura: obj.userData.textura, nombre: obj.userData.nombre,
                 escala: obj.userData.escala || 1.0
             });
         }
@@ -844,16 +854,13 @@ document.addEventListener('DOMContentLoaded', () => {
         guardarCamaraLocal();
         if (proyectoCargadoId) localStorage.setItem('proyecto_hc_id', proyectoCargadoId);
         if (proyectoCargadoNombre) localStorage.setItem('proyecto_hc_nombre', proyectoCargadoNombre);
+        if (proyectoCargadoDescripcion) localStorage.setItem('proyecto_hc_descripcion', proyectoCargadoDescripcion);
     }
 
     function guardarCamaraLocal() {
         const camEstado = {
-            posX: camera.position.x,
-            posY: camera.position.y,
-            posZ: camera.position.z,
-            targetX: controles.target.x,
-            targetY: controles.target.y,
-            targetZ: controles.target.z
+            posX: camera.position.x, posY: camera.position.y, posZ: camera.position.z,
+            targetX: controles.target.x, targetY: controles.target.y, targetZ: controles.target.z
         };
         localStorage.setItem('camara_homecount', JSON.stringify(camEstado));
     }
@@ -874,7 +881,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!datosString) return;
         const idLocal = localStorage.getItem('proyecto_hc_id');
         const nombreLocal = localStorage.getItem('proyecto_hc_nombre');
+        const descLocal = localStorage.getItem('proyecto_hc_descripcion');
+        
         if (idLocal) proyectoCargadoId = idLocal;
+        if (descLocal) proyectoCargadoDescripcion = descLocal;
         if (nombreLocal) {
             proyectoCargadoNombre = nombreLocal;
             if (typeof actualizarNombreInterfaz === 'function') actualizarNombreInterfaz(proyectoCargadoNombre);
@@ -932,9 +942,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function cargarEscenaDesdeJSON(proyecto, scene, objetos, camera, controles, callbackActualizarUI) {
         let datosEscena = typeof proyecto.datos_escena === 'string' ? JSON.parse(proyecto.datos_escena) : proyecto.datos_escena;
 
-        for (let i = objetos.length - 1; i >= 1; i--) {
-            scene.remove(objetos[i]);
-        }
+        for (let i = objetos.length - 1; i >= 1; i--) scene.remove(objetos[i]);
         objetos.length = 1; 
         let nuevoCostoTotal = 0;
 
@@ -982,16 +990,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const malla = new THREE.Mesh(geo, mat);
                     malla.position.set(item.posX, item.posY, item.posZ);
                     malla.rotation.y = item.rotY || 0;
-                    
                     const esc = item.escalaX || item.escala || 1.0;
                     malla.scale.set(esc, esc, esc);
-                    
                     malla.userData = { 
                         precio: item.precio, tipo: item.tipo, url3D: null, 
                         textura: item.textura, nombre: item.nombre, escala: esc,
                         categoria: item.categoria || (window.mapaCategoriasMateriales && window.mapaCategoriasMateriales[item.nombre]) || ''
                     };
-                    
                     scene.add(malla);
                     objetos.push(malla); 
                     resolve();
@@ -1009,7 +1014,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (callbackActualizarUI) {
-            callbackActualizarUI(nuevoCostoTotal, proyecto.id, proyecto.nombre);
+            // --- NUEVO: Enviamos la descripción del proyecto desde la base de datos ---
+            callbackActualizarUI(nuevoCostoTotal, proyecto.id, proyecto.nombre, proyecto.descripcion);
         }
     }
 
@@ -1019,20 +1025,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const style = document.createElement('style');
         style.id = 'estilo-spinner-guardado';
         style.innerHTML = `
-            @keyframes spinAutoGuardado { 
-                to { transform: rotate(360deg); } 
-            }
-            .ruedita-carga {
-                display: inline-block;
-                width: 12px;
-                height: 12px;
-                border: 2px solid rgba(255,255,255,0.3);
-                border-radius: 50%;
-                border-top-color: #fff;
-                animation: spinAutoGuardado 1s linear infinite;
-                margin-right: 8px;
-                vertical-align: middle;
-            }
+            @keyframes spinAutoGuardado { to { transform: rotate(360deg); } }
+            .ruedita-carga { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #fff; animation: spinAutoGuardado 1s linear infinite; margin-right: 8px; vertical-align: middle; }
         `;
         document.head.appendChild(style);
     }
@@ -1041,12 +1035,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!cartelAutoGuardado) {
         cartelAutoGuardado = document.createElement('div');
         cartelAutoGuardado.id = 'cartel-autoguardado';
-        
         cartelAutoGuardado.style.position = 'fixed';
         cartelAutoGuardado.style.top = '185px'; 
         cartelAutoGuardado.style.left = '50%';
         cartelAutoGuardado.style.transform = 'translateX(-50%)';
-        
         cartelAutoGuardado.style.backgroundColor = 'rgba(44, 62, 80, 0.9)'; 
         cartelAutoGuardado.style.color = '#ffffff';
         cartelAutoGuardado.style.padding = '8px 20px';
@@ -1060,7 +1052,6 @@ document.addEventListener('DOMContentLoaded', () => {
         cartelAutoGuardado.style.zIndex = '1000';
         cartelAutoGuardado.style.display = 'flex';
         cartelAutoGuardado.style.alignItems = 'center';
-        
         document.body.appendChild(cartelAutoGuardado);
     }
 
@@ -1094,13 +1085,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = {
             proyecto_id: proyectoCargadoId,
             nombre_proyecto: proyectoCargadoNombre,
+            descripcion: proyectoCargadoDescripcion, // --- NUEVO: Enviamos la descripción para que no se borre
             costo_total: costoTotal,
             datos_escena: datosEscena,
             datos_camara: {
                 posX: camera.position.x, posY: camera.position.y, posZ: camera.position.z,
                 targetX: controles.target.x, targetY: controles.target.y, targetZ: controles.target.z
             },
-            captura_base64: capturaBase64
+            captura_base64: capturaBase64,
+            es_prefabricada: window.esPrefabricadaActiva || false
         };
 
         try {
@@ -1114,17 +1107,13 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             
             const esperaVisual = new Promise(resolve => setTimeout(resolve, 1500));
-
             const [response] = await Promise.all([peticionDjango, esperaVisual]);
 
             if (response.ok) {
                 if (cartelAutoGuardado) {
                     cartelAutoGuardado.innerHTML = '✔️ Progreso guardado';
                     cartelAutoGuardado.style.backgroundColor = 'rgba(46, 204, 113, 0.9)'; 
-                    
-                    setTimeout(() => {
-                        cartelAutoGuardado.style.opacity = '0';
-                    }, 2500);
+                    setTimeout(() => cartelAutoGuardado.style.opacity = '0', 2500);
                 }
             }
         } catch (err) {
@@ -1132,21 +1121,15 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cartelAutoGuardado) {
                 cartelAutoGuardado.innerHTML = '❌ Error al guardar';
                 cartelAutoGuardado.style.backgroundColor = 'rgba(231, 76, 60, 0.9)'; 
-                setTimeout(() => {
-                    cartelAutoGuardado.style.opacity = '0';
-                }, 3000);
+                setTimeout(() => cartelAutoGuardado.style.opacity = '0', 3000);
             }
         }
     }
 
     function dispararAutoGuardado() {
         if (!proyectoCargadoId) return; 
-        
         if (temporizadorAutoGuardado) clearTimeout(temporizadorAutoGuardado);
-        
-        temporizadorAutoGuardado = setTimeout(() => {
-            autoGuardarEnBaseDeDatos();
-        }, 2000); 
+        temporizadorAutoGuardado = setTimeout(() => { autoGuardarEnBaseDeDatos(); }, 2000); 
     }
 
     function limpiarSesion3D() {
@@ -1154,6 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         localStorage.removeItem('camara_homecount');
         localStorage.removeItem('proyecto_hc_id');
         localStorage.removeItem('proyecto_hc_nombre');
+        localStorage.removeItem('proyecto_hc_descripcion');
         localStorage.removeItem('diseno_temporal_cargado'); 
     }
     
@@ -1178,10 +1162,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     const modelo = data.disenos.find(d => String(d.id) === String(prefabId));
                     if (modelo) {
                         const proyectoCopia = { ...modelo, id: null };
-                        const callbackActualizarUI = (nuevoCosto, idProyecto, nombreProyecto) => {
+                        const callbackActualizarUI = (nuevoCosto, idProyecto, nombreProyecto, descProyecto) => {
                             costoTotal = nuevoCosto;
                             proyectoCargadoId = idProyecto;
                             proyectoCargadoNombre = nombreProyecto;
+                            proyectoCargadoDescripcion = descProyecto || "";
+                            
                             if (typeof actualizarNombreInterfaz === 'function') actualizarNombreInterfaz(proyectoCargadoNombre);
                             if (uiTotal) uiTotal.textContent = `$${new Intl.NumberFormat('es-CL').format(costoTotal)}`;
                             actualizarListaUI();
@@ -1200,22 +1186,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const btnGuardarVerificacion = document.getElementById('btn-guardar-modelo');
         if (!btnGuardarVerificacion) {
-            
-            if (!sessionStorage.getItem('pestaña_activa')) {
-                localStorage.removeItem('proyecto_homecount');
-                localStorage.removeItem('camara_homecount');
-                sessionStorage.setItem('pestaña_activa', 'true'); 
-            }
-            
-            localStorage.removeItem('proyecto_hc_id');
-            localStorage.removeItem('proyecto_hc_nombre');
-            proyectoCargadoId = null;
-            proyectoCargadoNombre = "";
-            
-            if (typeof actualizarNombreInterfaz === 'function') {
-                actualizarNombreInterfaz(""); 
-            }
-            
             cargarEscenaLocal();
             if (typeof cargarCamaraLocal === 'function') cargarCamaraLocal();
             actualizarListaUI();
@@ -1224,44 +1194,61 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            const response = await fetch('/api/obtener-disenos/');
+            // --- NUEVO: Determinar la ruta según el rol para buscar su último diseño ---
+            const esAdmin = typeof window.esAdminGlobal !== 'undefined' && window.esAdminGlobal;
+            const urlFetch = esAdmin ? '/api/obtener-casas-prefabricadas/' : '/api/obtener-disenos/';
+
+            const response = await fetch(urlFetch);
             const data = await response.json();
 
             if (response.ok && data.disenos && data.disenos.length > 0) {
                const idMemoria = localStorage.getItem('proyecto_hc_id');
-                let ultimoProyecto = data.disenos[0]; 
+               let proyectoAcargar = null;
 
+                // 1. Intentar cargar el que estaba en memoria (si el usuario solo recargó la página)
                 if (idMemoria) {
-                    const proyectoEspecifico = data.disenos.find(p => String(p.id) === String(idMemoria));
-                    if (proyectoEspecifico) {
-                        ultimoProyecto = proyectoEspecifico;
-                    }
+                    proyectoAcargar = data.disenos.find(p => String(p.id) === String(idMemoria));
                 } 
                 
-                localStorage.removeItem('proyecto_homecount');
-                localStorage.removeItem('camara_homecount');
+                // 2. --- NUEVO: Si no hay ID en memoria (por inicio de sesión fresco),
+                // tomar el último modificado (el primero de la lista devuelta por Django).
+                if (!proyectoAcargar) {
+                    proyectoAcargar = data.disenos[0]; 
+                }
 
-                const callbackActualizarUI = (nuevoCosto, idProyecto, nombreProyecto) => {
-                    costoTotal = nuevoCosto; 
-                    proyectoCargadoId = idProyecto;       
-                    proyectoCargadoNombre = nombreProyecto; 
+                if (proyectoAcargar) {
+                    localStorage.removeItem('proyecto_homecount');
+                    localStorage.removeItem('camara_homecount');
+
+                    const callbackActualizarUI = (nuevoCosto, idProyecto, nombreProyecto, descProyecto) => {
+                        costoTotal = nuevoCosto; 
+                        proyectoCargadoId = idProyecto;       
+                        proyectoCargadoNombre = nombreProyecto; 
+                        proyectoCargadoDescripcion = descProyecto || "";
+                        window.esPrefabricadaActiva = esAdmin; // Asegura la ruta de guardado si es admin
+                        
+                        if (uiTotal) uiTotal.textContent = `$${new Intl.NumberFormat('es-CL').format(costoTotal)}`;
+                        actualizarListaUI();       
+                        recalcularTamanoTerreno(); 
+                        actualizarEstadoBotones(); 
+
+                        if (typeof actualizarNombreInterfaz === 'function') actualizarNombreInterfaz(proyectoCargadoNombre);
+                        
+                        if (proyectoCargadoId) localStorage.setItem('proyecto_hc_id', proyectoCargadoId);
+                        if (proyectoCargadoNombre) localStorage.setItem('proyecto_hc_nombre', proyectoCargadoNombre);
+                        localStorage.setItem('proyecto_hc_descripcion', proyectoCargadoDescripcion);
+                        
+                        if (typeof calcularYMostrarPerimetro === 'function') calcularYMostrarPerimetro();
+                    };
                     
-                    if (uiTotal) {
-                        uiTotal.textContent = `$${new Intl.NumberFormat('es-CL').format(costoTotal)}`;
-                    }
-                    actualizarListaUI();       
-                    recalcularTamanoTerreno(); 
-                    actualizarEstadoBotones(); 
-
-                    if (typeof actualizarNombreInterfaz === 'function') {
-                        actualizarNombreInterfaz(proyectoCargadoNombre);
-                    }
-                    if (proyectoCargadoId) localStorage.setItem('proyecto_hc_id', proyectoCargadoId);
-                    if (proyectoCargadoNombre) localStorage.setItem('proyecto_hc_nombre', proyectoCargadoNombre);
-                    if (typeof calcularYMostrarPerimetro === 'function') calcularYMostrarPerimetro();
-                };
+                    await cargarEscenaDesdeJSON(proyectoAcargar, scene, objetosInteractuables, camera, controles, callbackActualizarUI);
+                    return; 
+                }
                 
-                await cargarEscenaDesdeJSON(ultimoProyecto, scene, objetosInteractuables, camera, controles, callbackActualizarUI);
+                cargarEscenaLocal();
+                if (typeof cargarCamaraLocal === 'function') cargarCamaraLocal();
+                actualizarListaUI(); 
+                actualizarEstadoBotones(); 
             } else {
                 cargarEscenaLocal();
                 if (typeof cargarCamaraLocal === 'function') cargarCamaraLocal();
@@ -1277,7 +1264,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     autocompletarUltimoDiseño();
-
     window.addEventListener('beforeunload', guardarCamaraLocal);
 
     let inicioX = 0, inicioY = 0;
@@ -1291,22 +1277,16 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const alturaMinima = modeloActualGLTF ? 0 : (gridTamY / 2);
 
-        if (!usarGrid) {
-            return { x: punto.x, y: Math.max(punto.y, alturaMinima), z: punto.z };
-        }
+        if (!usarGrid) return { x: punto.x, y: Math.max(punto.y, alturaMinima), z: punto.z };
 
         const posX = Math.floor(punto.x / gridTamXZ) * gridTamXZ + (gridTamXZ / 2);
         const posZ = Math.floor(punto.z / gridTamXZ) * gridTamXZ + (gridTamXZ / 2);
         
         let posY;
-        if (modeloActualGLTF) {
-            posY = Math.floor(punto.y / gridTamY) * gridTamY;
-        } else {
-            posY = Math.floor(punto.y / gridTamY) * gridTamY + (gridTamY / 2);
-        }
+        if (modeloActualGLTF) posY = Math.floor(punto.y / gridTamY) * gridTamY;
+        else posY = Math.floor(punto.y / gridTamY) * gridTamY + (gridTamY / 2);
         
         posY = Math.max(posY, alturaMinima);
-        
         return { x: posX, y: posY, z: posZ };
     }
 
@@ -1314,7 +1294,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
         raycaster.setFromCamera(mouse, camera);
 
         if (event.shiftKey) {
@@ -1447,7 +1426,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             let guardarComoPrefabricada = false;
-            if (typeof esAdminGlobal !== 'undefined' && esAdminGlobal) {
+            if (typeof window.esAdminGlobal !== 'undefined' && window.esAdminGlobal) {
                 guardarComoPrefabricada = await DialogoUI.confirm(
                     "Eres Administrador.\n\n¿Deseas guardar este modelo en el catálogo público de 'Casas Prefabricadas'?\n\n(Aceptar = Catálogo Público | Cancelar = Tu Proyecto Personal)"
                 );
@@ -1455,17 +1434,25 @@ document.addEventListener('DOMContentLoaded', () => {
             
             const resultado = await procesarGuardado(
                 objetosInteractuables, camera, controles, costoTotal, scene, renderer, 
-                proyectoCargadoId, proyectoCargadoNombre, guardarComoPrefabricada
+                proyectoCargadoId, proyectoCargadoNombre, proyectoCargadoDescripcion, guardarComoPrefabricada // --- SE AÑADE LA DESCRIPCIÓN ---
             );
             
             if (resultado && resultado.exito) {
                 proyectoCargadoId = resultado.id;
                 proyectoCargadoNombre = resultado.nombre;
+                
+                // --- NUEVO: Actualizamos la descripción si el administrador agregó una nueva en el prompt ---
+                if (resultado.descripcion !== undefined) {
+                    proyectoCargadoDescripcion = resultado.descripcion;
+                    localStorage.setItem('proyecto_hc_descripcion', proyectoCargadoDescripcion);
+                }
+                
                 actualizarEstadoBotones(); 
                 actualizarNombreInterfaz(proyectoCargadoNombre);
             }
         });
     }
+
     const btnGuardarCopia = document.getElementById('btn-guardar-copia');
     if (btnGuardarCopia) {
         btnGuardarCopia.addEventListener('click', async (e) => {
@@ -1510,6 +1497,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const payload = {
                 proyecto_id: null, 
                 nombre_proyecto: nuevoNombre,
+                descripcion: proyectoCargadoDescripcion, // --- NUEVO: Conservar descripción en las copias
                 costo_total: costoTotal,
                 datos_escena: datosEscena,
                 datos_camara: {
@@ -1565,13 +1553,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (uiTotal) uiTotal.textContent = '$0';
                 actualizarListaUI();
                 
-                localStorage.removeItem('proyecto_homecount');
-                localStorage.removeItem('camara_homecount');
-                localStorage.removeItem('proyecto_hc_id');
-                localStorage.removeItem('proyecto_hc_nombre');
+                limpiarSesion3D(); 
 
                 proyectoCargadoId = null;
                 proyectoCargadoNombre = "";
+                proyectoCargadoDescripcion = "";
                 actualizarNombreInterfaz("");
 
                 cambiarTamanoTerreno(1000);
@@ -1593,18 +1579,22 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnMisModelos) {
         btnMisModelos.addEventListener('click', (e) => {
             e.preventDefault();
-            cargarDisenosUsuario(scene, objetosInteractuables, camera, controles, (nuevoCosto, idProyecto, nombreProyecto) => {
+            // --- NUEVO: Se actualiza el callback en btnMisModelos para aceptar descProyecto ---
+            cargarDisenosUsuario(scene, objetosInteractuables, camera, controles, (nuevoCosto, idProyecto, nombreProyecto, descProyecto) => {
                 costoTotal = nuevoCosto; 
                 proyectoCargadoId = idProyecto;       
                 proyectoCargadoNombre = nombreProyecto; 
+                proyectoCargadoDescripcion = descProyecto || "";
                 
-                if (uiTotal) {
-                    uiTotal.textContent = `$${new Intl.NumberFormat('es-CL').format(costoTotal)}`;
-                }
+                if (uiTotal) uiTotal.textContent = `$${new Intl.NumberFormat('es-CL').format(costoTotal)}`;
                 actualizarListaUI();       
                 recalcularTamanoTerreno(); 
                 actualizarEstadoBotones();
                 actualizarNombreInterfaz(proyectoCargadoNombre);
+                
+                if (proyectoCargadoId) localStorage.setItem('proyecto_hc_id', proyectoCargadoId);
+                if (proyectoCargadoNombre) localStorage.setItem('proyecto_hc_nombre', proyectoCargadoNombre);
+                localStorage.setItem('proyecto_hc_descripcion', proyectoCargadoDescripcion);
             });
         });
     }
@@ -1699,7 +1689,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.calcularYMostrarPerimetro = calcularYMostrarPerimetro;
 
-    // Lógica para modo oscuro
     const btnModoOscuro = document.getElementById('btn-modo-oscuro');
     const body = document.body;
 
@@ -1722,40 +1711,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Lógica para editar el nombre del proyecto
-// Lógica para editar el nombre del proyecto
     const displayNombre = document.getElementById('display-nombre-proyecto');
     if (displayNombre) {
-        
-        // 1. BLOQUEAR PEGADO CON FORMATO (Prevenir que peguen HTML oculto)
         displayNombre.addEventListener('paste', (e) => {
             e.preventDefault();
-            // Obtiene solo el texto sin formato del portapapeles
             let textoLimpio = (e.clipboardData || window.clipboardData).getData('text');
-            // Lo inserta de forma segura
             document.execCommand('insertText', false, textoLimpio);
         });
 
-        // 2. FUNCIÓN DE GUARDADO SANITIZADO
         const guardarNombreEditado = () => {
             let nuevoNombre = displayNombre.innerText.trim();
-            
-            // --- INICIO DE SANITIZACIÓN ---
-            // A) Eliminar símbolos peligrosos de HTML (menor que, mayor que)
             nuevoNombre = nuevoNombre.replace(/[<>]/g, ''); 
             
-            // B) Limitar la longitud máxima a 50 caracteres
             if (nuevoNombre.length > 50) {
                 nuevoNombre = nuevoNombre.substring(0, 50);
             }
-            // --- FIN DE SANITIZACIÓN ---
-
-            // Si lo deja en blanco tras la limpieza, restaurar valor por defecto
             if (nuevoNombre === "") {
                 nuevoNombre = "Nuevo Proyecto";
             }
-            
-            // Devolver el nombre ya limpio a la pantalla
             displayNombre.innerText = nuevoNombre;
             
             if (typeof proyectoCargadoNombre !== 'undefined') {
@@ -1763,7 +1736,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             localStorage.setItem('proyecto_hc_nombre', nuevoNombre);
 
-            // Guardado automático si el proyecto existe
             if (typeof proyectoCargadoId !== 'undefined' && proyectoCargadoId !== null) {
                 if (typeof dispararAutoGuardado === 'function') {
                     dispararAutoGuardado();
@@ -1774,16 +1746,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         };
 
-        // Guardar al hacer clic fuera
         displayNombre.addEventListener('blur', guardarNombreEditado);
-        
-        // Guardar al presionar Enter o evitar seguir escribiendo
         displayNombre.addEventListener('keydown', (e) => {
-            // Evitar que sigan escribiendo si ya pasaron los 50 caracteres (permitiendo borrar)
             if (displayNombre.innerText.length >= 50 && e.key !== 'Backspace' && e.key !== 'Delete' && !e.ctrlKey && !e.metaKey) {
                 e.preventDefault();
             }
-
             if (e.key === 'Enter') {
                 e.preventDefault(); 
                 displayNombre.blur(); 
