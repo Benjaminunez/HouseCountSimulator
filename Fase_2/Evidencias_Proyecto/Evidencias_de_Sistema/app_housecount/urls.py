@@ -33,6 +33,9 @@ urlpatterns = [
     path('api/obtener-casas-prefabricadas/', views.obtener_casas_prefabricadas, name='obtener_casas_prefabricadas'),
 
     path('api/enviar-informe-correo/', views.enviar_informe_correo_view, name='enviar_informe_correo'),
+    path('api/agregar-material/', views.api_agregar_material, name='api_agregar_material'),
+    path('api/listar-materiales/', views.api_listar_materiales, name='api_listar_materiales'),
+    path('api/modificar-material/', views.api_modificar_material, name='api_modificar_material'),
 ]
 
 # ESTO PERMITE VER LAS IMÁGENES SUBIDAS EN LOCALHOST

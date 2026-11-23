@@ -8,7 +8,7 @@ import random
 from django.shortcuts import render, redirect
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, logout, authenticate
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
@@ -22,6 +22,9 @@ from .models import ModeloCasa, Material, Habitacion, Proyecto3D, CategoriaMater
 
 
 # --- Vistas de Navegación HTML ---
+
+def comprobacion_admin(user):
+    return user.is_staff or user.is_superuser
 
 def inicio(request): 
     casas = CasaPrefabricada.objects.all().order_by('-fecha_creacion')[:6]
@@ -733,3 +736,99 @@ def enviar_informe_correo_view(request):
         return JsonResponse({'status': 'error', 'mensaje': 'No se recibió ningún archivo PDF adjunto.'})
         
     return JsonResponse({'status': 'invalid', 'mensaje': 'Método no permitido.'})
+
+
+@login_required
+@user_passes_test(comprobacion_admin, login_url='/')
+def api_agregar_material(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            
+            nombre = data.get('nombre')
+            coste = data.get('coste', 0)
+            dimensiones = data.get('dimensiones', '')
+            unidad_medida = data.get('unidad_medida', 'Unidad')
+            categoria_nombre = data.get('categoria')
+
+            if not nombre:
+                return JsonResponse({'estado': 'error', 'mensaje': 'El nombre del material es obligatorio.'}, status=400)
+
+            # Buscamos la instancia de la categoría en la base de datos
+            try:
+                categoria_instancia = CategoriaMaterial.objects.get(nombre__iexact=categoria_nombre)
+            except CategoriaMaterial.DoesNotExist:
+                return JsonResponse({'estado': 'error', 'mensaje': f'La categoría "{categoria_nombre}" no existe en la base de datos.'}, status=400)
+
+            # Crea el registro en la base de datos
+            # Los campos imagen y archivo_3d quedarán vacíos hasta que se suban por el panel
+            nuevo_material = Material.objects.create(
+                nombre=nombre,
+                coste=coste,
+                dimensiones=dimensiones,
+                unidad_medida=unidad_medida,
+                categoria=categoria_instancia
+            )
+
+            return JsonResponse({
+                'estado': 'exito',
+                'mensaje': 'Material registrado en la base de datos correctamente.',
+                'id': nuevo_material.id
+            })
+
+        except Exception as e:
+            return JsonResponse({'estado': 'error', 'mensaje': f'Error del servidor: {str(e)}'}, status=500)
+            
+    return JsonResponse({'estado': 'error', 'mensaje': 'Método no permitido. Solo se acepta POST.'}, status=405)
+
+@login_required
+@user_passes_test(comprobacion_admin, login_url='/')
+def api_listar_materiales(request):
+    if request.method == 'GET':
+        # Obtenemos todos los materiales y los pasamos a diccionario
+        materiales = Material.objects.all().values(
+            'id', 'nombre', 'coste', 'dimensiones', 'unidad_medida', 'categoria__nombre'
+        ).order_by('-id') # Ordenados por el más nuevo primero
+        
+        return JsonResponse({
+            'estado': 'exito', 
+            'total': materiales.count(),
+            'data': list(materiales)
+        })
+
+
+@login_required
+@user_passes_test(comprobacion_admin, login_url='/')
+def api_modificar_material(request):
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            material_id = data.get('id')
+            
+            if not material_id:
+                return JsonResponse({'estado': 'error', 'mensaje': 'Se requiere el ID del material a modificar.'}, status=400)
+                
+            # Buscamos el material en la base de datos
+            material = Material.objects.get(id=material_id)
+            
+            # Actualizamos los campos
+            if 'nombre' in data: material.nombre = data['nombre']
+            if 'coste' in data: material.coste = data['coste']
+            if 'dimensiones' in data: material.dimensiones = data['dimensiones']
+            if 'unidad_medida' in data: material.unidad_medida = data['unidad_medida']
+            if 'categoria' in data:
+                try:
+                    categoria_instancia = CategoriaMaterial.objects.get(nombre__iexact=data['categoria'])
+                    material.categoria = categoria_instancia
+                except CategoriaMaterial.DoesNotExist:
+                    return JsonResponse({'estado': 'error', 'mensaje': f'La categoría "{data["categoria"]}" no existe.'}, status=400)
+                    
+            material.save()
+            return JsonResponse({'estado': 'exito', 'mensaje': 'Material actualizado correctamente.'})
+            
+        except Material.DoesNotExist:
+            return JsonResponse({'estado': 'error', 'mensaje': 'El material con ese ID no existe.'}, status=404)
+        except Exception as e:
+            return JsonResponse({'estado': 'error', 'mensaje': f'Error del servidor: {str(e)}'}, status=500)
+            
+    return JsonResponse({'estado': 'error', 'mensaje': 'Método no permitido. Solo POST.'}, status=405)

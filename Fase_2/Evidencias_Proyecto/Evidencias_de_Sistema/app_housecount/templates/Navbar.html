@@ -5,8 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link rel="stylesheet" href="{% static 'css/StyleNavbar.css' %}?v=3">
     <link rel="stylesheet" href="{% static 'css/StyleUserMenu.css' %}?v=3">
+    <script>
+        window.esAdminGlobal = {% if user.is_staff or user.is_superuser %}true{% else %}false{% endif %};
+    </script>
     <script src="{% static 'js/MenuUser.js'%}"></script>
+    <script src="{% static 'js/modalApi.js'%}"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
 </head>
 <header class="navbar">
     <div class="logo">
@@ -34,6 +39,9 @@
                         <!-- Opción SOLO para Administradores -->
                         <a href="{% url 'admin:index' %}" class="opcion-menu">
                             <i class="fas fa-tools"></i> Panel de Administración
+                        </a>
+                        <a href="#" id="btn-abrir-modal-api" class="dropdown-item">
+                            ➕ Añadir Material 3D
                         </a>
                     {% else %}
                         <!-- Opción SOLO para Usuarios Normales -->

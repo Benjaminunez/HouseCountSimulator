@@ -1060,6 +1060,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function autoGuardarEnBaseDeDatos() {
+        // Bloqueo: Si no hay un ID de proyecto válido (es invitado o proyecto nuevo no guardado), abortamos silenciosamente.
         if (!proyectoCargadoId) return;
 
         if (cartelAutoGuardado) {
@@ -1089,8 +1090,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const payload = {
             proyecto_id: proyectoCargadoId,
             nombre_proyecto: proyectoCargadoNombre,
-            descripcion: proyectoCargadoDescripcion, // --- NUEVO: Enviamos la descripción para que no se borre
-            costo_total: costoTotal,
+            descripcion: typeof proyectoCargadoDescripcion !== 'undefined' ? proyectoCargadoDescripcion : "", 
+            costo_total: typeof costoTotal !== 'undefined' ? costoTotal : 0,
             datos_escena: datosEscena,
             datos_camara: {
                 posX: camera.position.x, posY: camera.position.y, posZ: camera.position.z,
@@ -1873,48 +1874,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     observerModoOscuro.observe(document.body, { attributes: true });
-
-    function generarArchivoPDF(datos) {
-        return new Promise((resolve, reject) => {
-            if (typeof html2pdf === 'undefined') {
-                return reject("La librería html2pdf no está cargada.");
-            }
-
-            const contenedorTemporal = document.createElement('div');
-            contenedorTemporal.innerHTML = generarHTMLInforme(datos, true);
-            
-            contenedorTemporal.style.position = 'absolute';
-            contenedorTemporal.style.left = '-9999px';
-            contenedorTemporal.style.top = '-9999px';
-            contenedorTemporal.style.fontFamily = "'Segoe UI', sans-serif";
-            contenedorTemporal.style.color = "#1e293b";
-            contenedorTemporal.style.padding = "16px";
-            contenedorTemporal.style.backgroundColor = "#ffffff";
-            document.body.appendChild(contenedorTemporal);
-
-            const opt = {
-                margin: [8, 8, 8, 8],
-                filename: `Informe_Construccion_HomeCount_${datos.folio}.pdf`,
-                image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { 
-                    scale: 2, 
-                    useCORS: true, 
-                    logging: false,
-                    letterRendering: true,
-                    windowWidth: 850
-                },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-            };
-
-            html2pdf().set(opt).from(contenedorTemporal).toPdf().get('pdf').then(function(pdfObj) {
-                document.body.removeChild(contenedorTemporal);
-                resolve(pdfObj.output('blob'));
-            }).catch(err => {
-                if (document.body.contains(contenedorTemporal)) document.body.removeChild(contenedorTemporal);
-                reject(err);
-            });
-        });
-    }
 
     function generarHTMLInforme(datos, paraPDF = false) {
         const formatear = (valor) => new Intl.NumberFormat('es-CL').format(valor);

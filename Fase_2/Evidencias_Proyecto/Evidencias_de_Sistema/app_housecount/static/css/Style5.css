@@ -188,7 +188,7 @@ body.tema-oscuro #btn-toggle-panel-der:hover { color: #f39c12; }
 }
 #btn-borrar-todo::after { content: "Borrar Modelo"; }
 #btn-guardar-modelo::after { content: "Actualizar Modelo"; }
-#btn-guardar-copia::after { content: "Guardar Nuevo Diseño"; }
+#btn-guardar-copia::after { content: "Generar Copia"; }
 #btn-generar-informe::after{content: "Generar Reporte";}
 #btn-mis-modelos::after { content: "Mis Diseños"; }
 
