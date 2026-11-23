@@ -36,6 +36,7 @@ urlpatterns = [
     path('api/agregar-material/', views.api_agregar_material, name='api_agregar_material'),
     path('api/listar-materiales/', views.api_listar_materiales, name='api_listar_materiales'),
     path('api/modificar-material/', views.api_modificar_material, name='api_modificar_material'),
+    path('api/sincronizar/', views.sincronizar_api_externa, name='sincronizar_api'),
 ]
 
 # ESTO PERMITE VER LAS IMÁGENES SUBIDAS EN LOCALHOST

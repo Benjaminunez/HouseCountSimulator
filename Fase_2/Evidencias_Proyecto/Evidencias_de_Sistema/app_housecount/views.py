@@ -6,6 +6,7 @@ import re
 from django.core.files.base import ContentFile
 import random
 from django.shortcuts import render, redirect
+from urllib.request import urlopen
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -832,3 +833,41 @@ def api_modificar_material(request):
             return JsonResponse({'estado': 'error', 'mensaje': f'Error del servidor: {str(e)}'}, status=500)
             
     return JsonResponse({'estado': 'error', 'mensaje': 'Método no permitido. Solo POST.'}, status=405)
+
+
+def sincronizar_api_externa(request):
+    url_api = "https://6b039f099e7cafb37dbf675e.mockapi.io/api/v1/materials"
+    
+    try:
+        respuesta = urlopen(url_api)
+        datos_externos = json.loads(respuesta.read())
+        
+        materiales_nuevos = 0
+        
+        for item in datos_externos:
+            nombre_categoria = item.get('category', 'Extras')
+            
+            # 1. Busca o crea la categoría usando el campo 'nombre'
+            categoria_obj, cat_creada = CategoriaMaterial.objects.get_or_create(nombre=nombre_categoria)
+            
+            # 2. Crea el material asignando la instancia (categoria_obj)
+            obj, creado = Material.objects.get_or_create(
+                nombre=item.get('name'), 
+                defaults={
+                    'coste': item.get('price', 0),
+                    'categoria': categoria_obj,
+                    'dimensiones': item.get('dimensions', ''),
+                    'unidad_medida': item.get('unit', 'Unidad')
+                }
+            )
+            
+            if creado:
+                materiales_nuevos += 1
+                
+        return JsonResponse({
+            'status': 'success', 
+            'mensaje': f'Sincronización exitosa. Se agregaron {materiales_nuevos} materiales nuevos a la DB.'
+        })
+        
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'mensaje': str(e)}, status=500)

@@ -13,82 +13,114 @@ document.addEventListener('DOMContentLoaded', () => {
     let categoriaSeleccionada = 'Todos';
     let modoEdicion = false; 
 
-    const htmlModalAdmin = `
-    <div id="modal-admin-api" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); z-index: 1000000; justify-content: center; align-items: center; font-family: 'Segoe UI', sans-serif;">
-        <div style="display: flex; flex-direction: row; gap: 20px; width: 95%; max-width: 1050px; background: transparent;">
-            
-            <!-- COLUMNA IZQ: FORMULARIO -->
-            <div style="flex: 1; background: #222; color: white; border-radius: 10px; display: flex; flex-direction: column; box-shadow: 0 10px 25px rgba(0,0,0,0.8); overflow: hidden;">
-                
-                <div style="display: flex; background: #1a1a1a; border-bottom: 1px solid #333;">
-                    <button id="tab-izq-crear" style="flex: 1; padding: 15px; background: #222; color: #f39c12; border: none; border-top: 3px solid #f39c12; cursor: pointer; font-weight: bold; font-size: 14px; outline: none;">➕ Crear Nuevo</button>
-                    <button id="tab-izq-editar" style="flex: 1; padding: 15px; background: #1a1a1a; color: #888; border: none; border-top: 3px solid transparent; cursor: pointer; font-size: 14px; outline: none;">✏️ Editar Existente</button>
-                </div>
-
-                <div style="padding: 25px; display: flex; flex-direction: column; gap: 15px;">
-                    
-                    <div id="bloque-busqueda-id" style="display: none; gap: 10px; background: #1a1a1a; padding: 15px; border-radius: 5px; border: 1px dashed #555;">
-                        <input type="text" id="admin-api-id" placeholder="ID del material" style="width: 130px; padding: 8px; border-radius: 4px; border: 1px solid #555; background: #333; color: #f39c12; outline: none; font-weight: bold;">
-                        <button id="btn-admin-api-cargar" style="padding: 8px 12px; background: #3498db; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: bold;">⬇️ Cargar Datos</button>
-                        <button id="btn-admin-api-limpiar" style="padding: 8px 12px; background: #5a5a5a; color: white; border: none; border-radius: 4px; cursor: pointer;">🧹 Limpiar</button>
-                    </div>
-
-                    <div>
-                        <label style="display: block; font-size: 13px; margin-bottom: 5px; color: #bbb;">Nombre del Material:</label>
-                        <input type="text" id="admin-api-nombre" placeholder="Ej. Banca, Ventana, Puerta..." style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; outline: none;">
-                    </div>
-                    
-                    <div style="display: flex; gap: 15px;">
-                        <div style="flex: 1;">
-                            <label style="display: block; font-size: 13px; margin-bottom: 5px; color: #bbb;">Coste (CLP):</label>
-                            <input type="number" id="admin-api-coste" placeholder="Ej. 30000" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; outline: none;">
-                        </div>
-                        <div style="flex: 1;">
-                            <label style="display: block; font-size: 13px; margin-bottom: 5px; color: #bbb;">Categoría:</label>
-                            <select id="admin-api-categoria" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; outline: none;">
-                                <option value="Extras">Extras</option>
-                                <option value="Habitacion">Habitacion</option>
-                                <option value="Cocina">Cocina</option>
-                                <option value="Baño">Baño</option>
-                                <option value="Living">Living</option>
-                                <option value="Estructura">Estructura</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div style="display: flex; gap: 15px;">
-                        <div style="flex: 1;">
-                            <label style="display: block; font-size: 13px; margin-bottom: 5px; color: #bbb;">Dimensiones:</label>
-                            <input type="text" id="admin-api-dimensiones" placeholder="Ej. 80cm x 60cm" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; outline: none;">
-                        </div>
-                        <div style="flex: 1;">
-                            <label style="display: block; font-size: 13px; margin-bottom: 5px; color: #bbb;">Unidad de Medida:</label>
-                            <input type="text" id="admin-api-unidad" placeholder="Ej. Unidad, m², Saco" value="Unidad" style="width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #444; background: #333; color: white; box-sizing: border-box; outline: none;">
-                        </div>
-                    </div>
-                    
-                    <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 15px;">
-                        <button id="btn-admin-api-cancelar" style="padding: 10px 15px; background: #5a5a5a; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Cerrar Panel</button>
-                        <button id="btn-admin-api-guardar" style="padding: 10px 15px; background: #27ae60; color: white; border: none; border-radius: 5px; cursor: pointer; font-weight: bold;">Guardar en Nube</button>
-                    </div>
-                </div>
-            </div>
-
-            <!-- COLUMNA DER: VISOR JSON -->
-            <div style="flex: 1; display: flex; flex-direction: column; background: #1e1e1e; border-radius: 10px; border: 1px solid #333; box-shadow: 0 10px 25px rgba(0,0,0,0.8); overflow: hidden;">
-                <div style="background: #2d2d2d; padding: 10px 15px; font-size: 12px; color: #ccc; border-bottom: 1px solid #444; display: flex; justify-content: space-between; align-items: center;">
-                    <span style="font-family: monospace;">☁️ GET API Externa (GlobalBuild B2B)</span>
-                    <button id="btn-admin-api-recargar" style="background: none; border: 1px solid #555; color: #ddd; border-radius: 4px; padding: 3px 8px; cursor: pointer; font-size: 11px;">🔄 Refrescar Red</button>
-                </div>
-                
-                <div id="contenedor-tabs-api" style="display: flex; background: #252526; border-bottom: 1px solid #333; overflow-x: auto; min-height: 35px;"></div>
-                <pre id="visor-json-api" style="margin: 0; padding: 15px; color: #9cdcfe; font-family: Consolas, monospace; font-size: 13px; overflow-y: auto; max-height: 480px; flex-grow: 1;">Contactando servidor externo...</pre>
-            </div>
-            
-        </div>
-    </div>
+    const style = document.createElement('style');
+    style.innerHTML = `
+        #modal-admin-api input:focus, #modal-admin-api select:focus {
+            border-color: #e67e22 !important;
+            background: #fff !important;
+            box-shadow: 0 0 0 3px rgba(230, 126, 34, 0.1);
+        }
+        #btn-admin-api-guardar:hover {
+            background: #d35400 !important;
+            transform: translateY(-2px);
+        }
+        #btn-admin-api-cancelar:hover, #btn-admin-api-limpiar:hover, #btn-admin-api-recargar:hover {
+            background: #e2e2e2 !important;
+        }
+        #btn-admin-api-cargar:hover {
+            background: #2980b9 !important;
+        }
     `;
-    
+    document.head.appendChild(style);
+
+    const htmlModalAdmin = `
+        <div id="modal-admin-api" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 1000000; justify-content: center; align-items: center; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+            
+            <!-- CONTENEDOR PRINCIPAL -->
+            <div style="display: flex; flex-direction: row; gap: 20px; width: 95%; max-width: 1050px; height: 550px; max-height: 90vh; background: transparent;">
+                
+                <!-- COLUMNA IZQ: FORMULARIO -->
+                <div style="flex: 1; background: #ffffff; color: #333; border-radius: 20px; display: flex; flex-direction: column; box-shadow: 0 15px 35px rgba(0,0,0,0.1); overflow: hidden; height: 100%;">
+                    
+                    <div style="display: flex; background: #f8f9fa; border-bottom: 1px solid #eaeaea; min-height: 55px;">
+                        <button id="tab-izq-crear" style="flex: 1; padding: 15px; background: #ffffff; color: #e67e22; border: none; border-bottom: 3px solid #e67e22; cursor: pointer; font-weight: bold; font-size: 15px; outline: none; transition: all 0.3s;">Crear Nuevo</button>
+                        <button id="tab-izq-editar" style="flex: 1; padding: 15px; background: transparent; color: #888; border: none; border-bottom: 3px solid transparent; cursor: pointer; font-size: 15px; outline: none; transition: all 0.3s;">Editar Existente</button>
+                    </div>
+
+                    <div style="padding: 30px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; flex-grow: 1;">
+                        
+                        <div id="bloque-busqueda-id" style="display: none; flex-direction: column; gap: 10px; background: #fdfbf7; padding: 20px; border-radius: 12px; border: 1px solid #f0e6d2;">
+                            <span style="font-size: 14px; font-weight: bold; color: #555; text-align: center;">Ingrese el ID del material a modificar</span>
+                            <div style="display: flex; gap: 10px;">
+                                <input type="text" id="admin-api-id" placeholder="Ej. 12" style="flex: 1; padding: 12px; border-radius: 8px; border: 1px solid #ddd; background: #fff; color: #333; outline: none; font-weight: bold; font-size: 15px;">
+                                <button id="btn-admin-api-cargar" style="padding: 12px 20px; background: #3498db; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.3s;">Cargar</button>
+                                <button id="btn-admin-api-limpiar" style="padding: 12px 20px; background: #e0e0e0; color: #555; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: background 0.3s;">Limpiar</button>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">Nombre del Material</label>
+                            <input type="text" id="admin-api-nombre" placeholder="Ej. Ventana de aluminio" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #ddd; background: #fafafa; color: #333; box-sizing: border-box; outline: none; font-size: 14px; transition: border 0.3s;">
+                        </div>
+                        
+                        <div style="display: flex; gap: 20px;">
+                            <div style="flex: 1;">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">Coste (CLP)</label>
+                                <input type="number" id="admin-api-coste" placeholder="Ej. 30000" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #ddd; background: #fafafa; color: #333; box-sizing: border-box; outline: none; font-size: 14px;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">Categoría</label>
+                                <select id="admin-api-categoria" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #ddd; background: #fafafa; color: #333; box-sizing: border-box; outline: none; font-size: 14px; cursor: pointer;">
+                                    <option value="Extras">Extras</option>
+                                    <option value="Habitacion">Habitacion</option>
+                                    <option value="Cocina">Cocina</option>
+                                    <option value="Baño">Baño</option>
+                                    <option value="Living">Living</option>
+                                    <option value="Estructura">Estructura</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div style="display: flex; gap: 20px;">
+                            <div style="flex: 1;">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">Dimensiones</label>
+                                <input type="text" id="admin-api-dimensiones" placeholder="Ej. 80cm x 60cm" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #ddd; background: #fafafa; color: #333; box-sizing: border-box; outline: none; font-size: 14px;">
+                            </div>
+                            <div style="flex: 1;">
+                                <label style="display: block; font-size: 13px; font-weight: 600; margin-bottom: 8px; color: #555;">Unidad de Medida</label>
+                                <input type="text" id="admin-api-unidad" placeholder="Ej. Unidad" value="Unidad" style="width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid #ddd; background: #fafafa; color: #333; box-sizing: border-box; outline: none; font-size: 14px;">
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; justify-content: center; gap: 15px; margin-top: auto; padding-top: 20px;">
+                            <button id="btn-admin-api-cancelar" style="padding: 12px 30px; background: #f1f2f6; color: #555; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: background 0.3s;">Cancelar</button>
+                            <button id="btn-admin-api-guardar" style="padding: 12px 30px; background: #e67e22; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(230, 126, 34, 0.3); transition: transform 0.2s, box-shadow 0.2s;">ENVIAR DATOS</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- COLUMNA DER: VISOR JSON -->
+                <div style="flex: 1; display: flex; flex-direction: column; background: #ffffff; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); overflow: hidden; height: 100%;">
+                    
+                <div style="background: #f8f9fa; padding: 15px 20px; border-bottom: 1px solid #eaeaea; display: flex; justify-content: space-between; align-items: center; min-height: 55px; box-sizing: border-box;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <span style="font-weight: bold; color: #555; font-size: 14px;">📡 GlobalBuild API B2B</span>
+                        <!-- Notificación visual de Sync -->
+                        <span id="admin-api-sync-status" style="font-size: 12px; font-weight: bold; padding: 4px 12px; border-radius: 20px; opacity: 0; transition: opacity 0.4s ease, transform 0.4s ease; transform: translateY(-3px);"></span>
+                    </div>
+                    <button id="btn-admin-api-recargar" style="background: white; border: 1px solid #ddd; color: #555; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 12px; font-weight: 600; box-shadow: 0 2px 5px rgba(0,0,0,0.05); transition: background 0.3s;">Refrescar Red</button>
+                </div>
+                                    
+                    <div id="contenedor-tabs-api" style="display: flex; background: #ffffff; border-bottom: 1px solid #eaeaea; overflow-x: auto; min-height: 45px; padding: 0 10px;"></div>
+                    
+                    <!-- Visor JSON con fondo oscuro suave para resaltar el código -->
+                    <pre id="visor-json-api" style="margin: 0; padding: 20px; background: #282c34; color: #abb2bf; font-family: 'Consolas', 'Courier New', monospace; font-size: 13.5px; overflow-y: auto; flex-grow: 1; height: 0; border-top-left-radius: 10px; border-top-right-radius: 10px; line-height: 1.5;"></pre>
+                </div>
+                
+            </div>
+        </div>
+    `;
+
     if (!document.getElementById('modal-admin-api')) {
         document.body.insertAdjacentHTML('beforeend', htmlModalAdmin);
     }
@@ -116,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabCrear.style.background = '#222'; tabCrear.style.color = '#f39c12'; tabCrear.style.borderTop = '3px solid #f39c12';
         tabEditar.style.background = '#1a1a1a'; tabEditar.style.color = '#888'; tabEditar.style.borderTop = '3px solid transparent';
         bloqueBusqueda.style.display = 'none';
-        btnGuardar.innerHTML = 'Guardar en Nube'; btnGuardar.style.background = '#27ae60';
+        btnGuardar.innerHTML = 'Guardar en Api'; btnGuardar.style.background = '#27ae60';
     };
 
     tabEditar.onclick = () => {
@@ -125,7 +157,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tabEditar.style.background = '#222'; tabEditar.style.color = '#e67e22'; tabEditar.style.borderTop = '3px solid #e67e22';
         tabCrear.style.background = '#1a1a1a'; tabCrear.style.color = '#888'; tabCrear.style.borderTop = '3px solid transparent';
         bloqueBusqueda.style.display = 'flex';
-        btnGuardar.innerHTML = '💾 Actualizar Nube'; btnGuardar.style.background = '#e67e22';
+        btnGuardar.innerHTML = '💾 Actualizar Registro'; btnGuardar.style.background = '#e67e22';
     };
 
     btnLimpiar.onclick = limpiarFormulario;
@@ -202,17 +234,61 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // LEER DESDE LA NUBE
+    // LEER DESDE LA NUBE Y SINCRONIZAR AUTOMÁTICAMENTE
     async function recargarVisorJSON() {
         visorJson.style.color = '#ccc';
         visorJson.innerHTML = "Descargando datos desde GlobalBuild API...";
         try {
+            // 1. Descarga los datos de MockAPI
             const resp = await fetch(URL_API_EXTERNA);
             if (!resp.ok) throw new Error("Error de red");
             const data = await resp.json();
             
+            // 2. Muestra los datos en la interfaz instantáneamente
             materialesCargados = data; 
             renderTabsVisor();
             renderVisor();
+            
+            // 3. 🔥 SINCRONIZACIÓN AUTOMÁTICA SILENCIOSA 🔥
+            // Fíjate que NO usamos "await" aquí. Esto hace que el navegador 
+            // no se quede esperando. Envía la orden a Django en segundo plano y sigue su camino.
+            fetch('/api/sincronizar/')
+                .then(response => response.json())
+                .then(data => {
+                    const statusUI = document.getElementById('admin-api-sync-status');
+                    if (statusUI) {
+                        if (data.status === 'success') {
+                            // Extraemos el número para ver si se agregaron nuevos
+                            const nuevos = data.mensaje.match(/\d+/);
+                            const cantidad = nuevos ? parseInt(nuevos[0]) : 0;
+                            
+                            if (cantidad > 0) {
+                                statusUI.innerHTML = `📥 ¡${cantidad} nuevos guardados en DB!`;
+                                statusUI.style.background = '#e67e22'; // Naranja alerta
+                                statusUI.style.color = '#ffffff';
+                            } else {
+                                statusUI.innerHTML = `✅ DB Local Sincronizada`;
+                                statusUI.style.background = '#e8f8f5'; // Verde claro
+                                statusUI.style.color = '#27ae60';
+                            }
+                        } else {
+                            statusUI.innerHTML = `❌ Error en DB Local`;
+                            statusUI.style.background = '#fdedec';
+                            statusUI.style.color = '#c0392b';
+                        }
+                        
+                        // Mostrar animación de entrada
+                        statusUI.style.opacity = '1';
+                        statusUI.style.transform = 'translateY(0)';
+                        
+                        // Ocultar suavemente después de 4 segundos
+                        setTimeout(() => {
+                            statusUI.style.opacity = '0';
+                            statusUI.style.transform = 'translateY(-3px)';
+                        }, 4000);
+                    }
+                })
+                .catch(err => console.error("Error en sync de fondo:", err));
             
         } catch (error) {
             visorJson.style.color = '#e74c3c';
