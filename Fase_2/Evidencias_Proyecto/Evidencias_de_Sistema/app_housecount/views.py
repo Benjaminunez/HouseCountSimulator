@@ -836,7 +836,8 @@ def api_modificar_material(request):
 
 
 def sincronizar_api_externa(request):
-    url_api = "https://6b039f099e7cafb37dbf675e.mockapi.io/api/v1/materials"
+    
+    url_api = settings.GLOBALBUILD_API_URL
     
     try:
         respuesta = urlopen(url_api)

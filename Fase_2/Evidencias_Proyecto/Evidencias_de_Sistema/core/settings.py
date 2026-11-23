@@ -209,3 +209,6 @@ SECURE_CONTENT_TYPE_OPTIONS_NOSNIFF = True
 
 # Protección básica contra XSS en navegadores antiguos
 SECURE_BROWSER_XSS_FILTER = True
+
+# Dirección api de materiales protegida
+GLOBALBUILD_API_URL = os.environ.get('GLOBALBUILD_API_URL')
