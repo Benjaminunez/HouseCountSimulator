@@ -3,6 +3,8 @@ import requests
 import base64
 import time
 import re
+import urllib.request
+import urllib.error
 from django.core.files.base import ContentFile
 import random
 from django.shortcuts import render, redirect
@@ -18,6 +20,7 @@ from django.utils.html import strip_tags
 from django.core.mail import send_mail, EmailMultiAlternatives, EmailMessage
 from django.conf import settings
 from django.contrib.auth.models import User
+from django.contrib.admin.views.decorators import staff_member_required
 
 from .models import ModeloCasa, Material, Habitacion, Proyecto3D, CategoriaMaterial, Avatar, CodigoRecuperacion, CasaPrefabricada
 
@@ -835,30 +838,64 @@ def api_modificar_material(request):
     return JsonResponse({'estado': 'error', 'mensaje': 'Método no permitido. Solo POST.'}, status=405)
 
 
+@staff_member_required
 def sincronizar_api_externa(request):
-    
     url_api = settings.GLOBALBUILD_API_URL
     
     try:
-        respuesta = urlopen(url_api)
-        datos_externos = json.loads(respuesta.read())
+        # 1. MEJORA 3 (Evitar colapsos): Petición con cabeceras y límite de 10 segundos
+        req = urllib.request.Request(url_api)
+        req.add_header('User-Agent', 'HouseCountSimulator/1.0')
         
+        respuesta = urllib.request.urlopen(req, timeout=10.0)
+        datos_externos = json.loads(respuesta.read().decode('utf-8'))
+        
+        # Verificamos que la API realmente haya devuelto una lista
+        if not isinstance(datos_externos, list):
+            return JsonResponse({'status': 'error', 'mensaje': 'Formato de API inválido: se esperaba una lista.'}, status=400)
+            
         materiales_nuevos = 0
         
         for item in datos_externos:
-            nombre_categoria = item.get('category', 'Extras')
+            # 2. MEJORA 4 (Sanitización y validación defensiva)
+            if not isinstance(item, dict):
+                continue # Si un elemento no es un objeto válido, lo saltamos
+                
+            # Validar nombre (obligatorio y limpio de espacios extra)
+            nombre_raw = item.get('name')
+            if not nombre_raw or not isinstance(nombre_raw, str):
+                continue # Ignoramos registros corruptos sin nombre
+            nombre_limpio = nombre_raw.strip()[:150] # Limitamos longitud por seguridad
             
-            # 1. Busca o crea la categoría usando el campo 'nombre'
-            categoria_obj, cat_creada = CategoriaMaterial.objects.get_or_create(nombre=nombre_categoria)
+            # Validar precio (asegurar que sea número positivo)
+            precio_raw = item.get('price', 0)
+            try:
+                precio_limpio = float(precio_raw)
+                if precio_limpio < 0:
+                    precio_limpio = 0
+            except (ValueError, TypeError):
+                precio_limpio = 0 # Si mandan texto en el precio, lo forzamos a 0
+                
+            # Validar textos opcionales (categoría, dimensiones, unidad)
+            cat_raw = item.get('category')
+            nombre_categoria = str(cat_raw).strip()[:100] if cat_raw else 'Extras'
             
-            # 2. Crea el material asignando la instancia (categoria_obj)
+            dim_raw = item.get('dimensions')
+            dimensiones_limpias = str(dim_raw).strip()[:100] if dim_raw else ''
+            
+            uni_raw = item.get('unit')
+            unidad_limpia = str(uni_raw).strip()[:50] if uni_raw else 'Unidad'
+            
+            # 3. Inserción segura en la Base de Datos
+            categoria_obj, _ = CategoriaMaterial.objects.get_or_create(nombre=nombre_categoria)
+            
             obj, creado = Material.objects.get_or_create(
-                nombre=item.get('name'), 
+                nombre=nombre_limpio, 
                 defaults={
-                    'coste': item.get('price', 0),
+                    'coste': precio_limpio,
                     'categoria': categoria_obj,
-                    'dimensiones': item.get('dimensions', ''),
-                    'unidad_medida': item.get('unit', 'Unidad')
+                    'dimensiones': dimensiones_limpias,
+                    'unidad_medida': unidad_limpia
                 }
             )
             
@@ -870,5 +907,8 @@ def sincronizar_api_externa(request):
             'mensaje': f'Sincronización exitosa. Se agregaron {materiales_nuevos} materiales nuevos a la DB.'
         })
         
+    except urllib.error.URLError as e:
+        # Captura específicamente caídas de red o cuando se supera el timeout de 10s
+        return JsonResponse({'status': 'error', 'mensaje': f'Tiempo de espera agotado o error de red: {str(e.reason)}'}, status=504)
     except Exception as e:
         return JsonResponse({'status': 'error', 'mensaje': str(e)}, status=500)
